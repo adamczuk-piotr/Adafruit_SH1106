@@ -923,7 +923,7 @@ uint8_t *Adafruit_SSD1306::getBuffer(void) { return buffer; }
             of graphics commands, as best needed by one's own application.
 */
 void Adafruit_SSD1306::display(void) {
-  TRANSACTION_START
+   TRANSACTION_START
   static const uint8_t PROGMEM dlist1[] = {
       SSD1306_PAGEADDR,
       0,                      // Page start address
@@ -941,18 +941,31 @@ void Adafruit_SSD1306::display(void) {
   // 32-byte transfer condition below.
   yield();
 #endif
-  uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
+  uint16_t count = WIDTH * (HEIGHT / 8 );
   uint8_t *ptr = buffer;
+  uint8_t i = 0;
   if (wire) { // I2C
+    
+    ssd1306_command1(0xB0 + i);		// Set row
+    ssd1306_command1(0x02);		// Set lower column address
+    ssd1306_command1(SSD1306_SETHIGHCOLUMN); // Set higher column address
+
     wire->beginTransmission(i2caddr);
     WIRE_WRITE((uint8_t)0x40);
-    uint8_t bytesOut = 1;
+
+    uint8_t bytesOut = 0;
     while (count--) {
+
       if (bytesOut >= WIRE_MAX) {
-        wire->endTransmission();
+        wire->endTransmission();      
+        i++;
+        ssd1306_command1(0xB0 + i);		// Set row
+        ssd1306_command1(0x02);		// Set lower column address
+        ssd1306_command1(SSD1306_SETHIGHCOLUMN); // Set higher column address
+
         wire->beginTransmission(i2caddr);
         WIRE_WRITE((uint8_t)0x40);
-        bytesOut = 1;
+        bytesOut = 0;
       }
       WIRE_WRITE(*ptr++);
       bytesOut++;
