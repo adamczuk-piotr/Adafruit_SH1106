@@ -923,14 +923,8 @@ uint8_t *Adafruit_SSD1306::getBuffer(void) { return buffer; }
             of graphics commands, as best needed by one's own application.
 */
 void Adafruit_SSD1306::display(void) {
-   TRANSACTION_START
-  static const uint8_t PROGMEM dlist1[] = {
-      SSD1306_PAGEADDR,
-      0,                      // Page start address
-      0xFF,                   // Page end (not really, but works here)
-      SSD1306_COLUMNADDR, 0}; // Column start address
-  ssd1306_commandList(dlist1, sizeof(dlist1));
-  ssd1306_command1(WIDTH - 1); // Column end address
+  TRANSACTION_START
+
 
 #if defined(ESP8266)
   // ESP8266 needs a periodic yield() call to avoid watchdog reset.
@@ -943,34 +937,23 @@ void Adafruit_SSD1306::display(void) {
 #endif
   uint16_t count = WIDTH * (HEIGHT / 8 );
   uint8_t *ptr = buffer;
-  uint8_t i = 0;
   if (wire) { // I2C
-    
-    ssd1306_command1(0xB0 + i);		// Set row
-    ssd1306_command1(0x02);		// Set lower column address
-    ssd1306_command1(SSD1306_SETHIGHCOLUMN); // Set higher column address
 
-    wire->beginTransmission(i2caddr);
-    WIRE_WRITE((uint8_t)0x40);
+    for (uint8_t i = 0; i < 8; i++) {
+        ssd1306_command1(0xB0 + i);		// Set page
+        ssd1306_command1(0x02);		// Skip two columns
+        ssd1306_command1(0x10); // Set higher column address
+      for (uint8_t j = 0; j < 8; j++) {
 
-    uint8_t bytesOut = 0;
-    while (count--) {
-
-      if (bytesOut >= WIRE_MAX) {
-        wire->endTransmission();      
-        i++;
-        ssd1306_command1(0xB0 + i);		// Set row
-        ssd1306_command1(0x02);		// Set lower column address
-        ssd1306_command1(SSD1306_SETHIGHCOLUMN); // Set higher column address
-
-        wire->beginTransmission(i2caddr);
-        WIRE_WRITE((uint8_t)0x40);
-        bytesOut = 0;
+          wire->beginTransmission(i2caddr);
+          wire->write((uint8_t)0x40);
+          for (uint8_t k = 0; k < 16; k++) {
+            wire->write(*ptr++);
+           }        
+          wire->endTransmission();
       }
-      WIRE_WRITE(*ptr++);
-      bytesOut++;
     }
-    wire->endTransmission();
+   
   } else { // SPI
     SSD1306_MODE_DATA
     while (count--)
@@ -981,6 +964,7 @@ void Adafruit_SSD1306::display(void) {
   yield();
 #endif
 }
+
 
 // SCROLLING FUNCTIONS -----------------------------------------------------
 
